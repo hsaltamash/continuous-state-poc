@@ -1,0 +1,11 @@
+{
+  "application": "demo-web-app",
+  "security": {
+    "session_timeout_minutes": 30,
+    "tls_enabled": true
+  },
+  "runtime": {
+    "worker_count": 4,
+    "log_level": "INFO"
+  }
+}

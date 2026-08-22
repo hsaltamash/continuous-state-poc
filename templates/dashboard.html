@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Continuous State Governance PoC</title>
+  <style>
+    body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; margin: 32px; background:#f6f8fa; color:#172033; }
+    h1 { margin-bottom: 6px; }
+    .sub { color:#667085; margin-top:0; }
+    .metrics { display:flex; gap:16px; flex-wrap:wrap; margin:24px 0; }
+    .metric { background:white; border:1px solid #e2e6eb; border-radius:12px; padding:16px 22px; min-width:120px; }
+    .metric b { display:block; font-size:28px; }
+    table { width:100%; border-collapse:collapse; background:white; margin-bottom:28px; }
+    th,td { border-bottom:1px solid #e5e7eb; padding:10px; text-align:left; font-size:14px; vertical-align:top; }
+    th { background:#eef2f7; }
+    .MATCH { color:#137333; font-weight:700; }
+    .DRIFT { color:#b42318; font-weight:700; }
+    .UNKNOWN { color:#8a6116; font-weight:700; }
+    code { white-space:pre-wrap; word-break:break-word; }
+  </style>
+</head>
+<body>
+  <h1>Continuous State Governance</h1>
+  <p class="sub">PoC dashboard — latest deterministic state snapshot and drift history</p>
+
+  <div class="metrics">
+    <div class="metric">Healthy<b>{{ counts.MATCH }}</b></div>
+    <div class="metric">Drifted<b>{{ counts.DRIFT }}</b></div>
+    <div class="metric">Unknown<b>{{ counts.UNKNOWN }}</b></div>
+    <div class="metric">Total<b>{{ rows|length }}</b></div>
+  </div>
+
+  <h2>Current state</h2>
+  <table>
+    <thead><tr><th>Application</th><th>Control</th><th>Collector</th><th>Expected</th><th>Observed</th><th>Status</th><th>Captured</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td>{{ r.application_id }}<br><small>{{ r.environment }} · {{ r.owner }}</small></td>
+        <td>{{ r.control_label }}<br><small>{{ r.control_id }}</small></td>
+        <td>{{ r.collector }}</td>
+        <td><code>{{ r.expected_value }}</code></td>
+        <td><code>{{ r.observed_value if r.observed_value is not none else r.error }}</code></td>
+        <td class="{{ r.status }}">{{ r.status }}</td>
+        <td>{{ r.captured_at }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Recent state events</h2>
+  <table>
+    <thead><tr><th>Time</th><th>Application</th><th>Control</th><th>Event</th><th>Transition</th><th>Value change</th></tr></thead>
+    <tbody>
+    {% for e in events %}
+      <tr>
+        <td>{{ e.detected_at }}</td><td>{{ e.application_id }}</td><td>{{ e.control_id }}</td>
+        <td>{{ e.event_type }}</td><td>{{ e.previous_status }} → {{ e.new_status }}</td>
+        <td><code>{{ e.previous_value }} → {{ e.new_value }}</code></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

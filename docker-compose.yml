@@ -1,0 +1,37 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: csg-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_demo_pw
+      MYSQL_DATABASE: demoapp
+      MYSQL_USER: state_reader
+      MYSQL_PASSWORD: demo_readonly_pw
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot_demo_pw --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: csg-openldap
+    environment:
+      LDAP_ORGANISATION: Demo Corp
+      LDAP_DOMAIN: demo.local
+      LDAP_ADMIN_PASSWORD: admin_demo_pw
+      LDAP_CONFIG_PASSWORD: config_demo_pw
+      LDAP_TLS: "false"
+    ports:
+      - "1389:389"
+    volumes:
+      - ./ldap/bootstrap:/container/service/slapd/assets/config/bootstrap/ldif/custom:ro
+    command: ["--copy-service"]
+
+volumes:
+  mysql_data:

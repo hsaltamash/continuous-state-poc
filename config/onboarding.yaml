@@ -1,0 +1,53 @@
+platform:
+  name: Continuous State Governance PoC
+  state_db: data/state.db
+
+applications:
+  - id: demo-web-app
+    name: Demo Web Application
+    environment: production
+    owner: sre-demo-team
+    criticality: tier-1
+    tags: [web, production, poc]
+    controls:
+      - id: api-session-timeout
+        label: API - Session timeout
+        collector: rest_json
+        endpoint: http://127.0.0.1:5001/config
+        path: security.session_timeout_minutes
+        expected: 30
+        compliance: security
+
+      - id: file-tls-enabled
+        label: File - TLS enabled
+        collector: file_json
+        file: config/mock_app_config.json
+        path: security.tls_enabled
+        expected: true
+        compliance: security
+
+      - id: db-max-connections
+        label: MySQL - Max connections app setting
+        collector: mysql_query
+        host: 127.0.0.1
+        port: 3306
+        database: demoapp
+        user: state_reader
+        password_env: DB_PASSWORD
+        query: "SELECT config_value FROM app_config WHERE config_key='max_connections'"
+        expected: "200"
+        compliance: reliability
+
+      - id: iam-app-admins
+        label: LDAP - app-admins membership
+        collector: ldap_group_members
+        host: 127.0.0.1
+        port: 1389
+        bind_dn: uid=state-reader,ou=people,dc=demo,dc=local
+        password_env: LDAP_BIND_PASSWORD
+        base_dn: ou=groups,dc=demo,dc=local
+        group_dn: cn=app-admins,ou=groups,dc=demo,dc=local
+        expected:
+          - uid=alice,ou=people,dc=demo,dc=local
+          - uid=bob,ou=people,dc=demo,dc=local
+        compliance: iam-jlm

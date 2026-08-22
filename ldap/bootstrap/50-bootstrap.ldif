@@ -1,0 +1,45 @@
+dn: ou=people,dc=demo,dc=local
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=groups,dc=demo,dc=local
+objectClass: organizationalUnit
+ou: groups
+
+dn: uid=alice,ou=people,dc=demo,dc=local
+objectClass: inetOrgPerson
+cn: Alice Admin
+sn: Admin
+uid: alice
+mail: alice@demo.local
+userPassword: alicepw
+
+dn: uid=bob,ou=people,dc=demo,dc=local
+objectClass: inetOrgPerson
+cn: Bob Builder
+sn: Builder
+uid: bob
+mail: bob@demo.local
+userPassword: bobpw
+
+dn: uid=carol,ou=people,dc=demo,dc=local
+objectClass: inetOrgPerson
+cn: Carol Change
+sn: Change
+uid: carol
+mail: carol@demo.local
+userPassword: carolpw
+
+dn: uid=state-reader,ou=people,dc=demo,dc=local
+objectClass: inetOrgPerson
+cn: State Reader
+sn: Reader
+uid: state-reader
+mail: state-reader@demo.local
+userPassword: demo_readonly_pw
+
+dn: cn=app-admins,ou=groups,dc=demo,dc=local
+objectClass: groupOfNames
+cn: app-admins
+member: uid=alice,ou=people,dc=demo,dc=local
+member: uid=bob,ou=people,dc=demo,dc=local
