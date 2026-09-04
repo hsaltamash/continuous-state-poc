@@ -33,5 +33,75 @@ services:
       - ./ldap/bootstrap:/container/service/slapd/assets/config/bootstrap/ldif/custom:ro
     command: ["--copy-service"]
 
+  mock-api:
+    build: .
+    container_name: csg-mock-api
+    command: ["python3", "src/mock_api.py"]
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 5001
+      CSG_CONFIG_FILE: config/onboarding.docker.yaml
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./config:/app/config
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/health', timeout=2).read()"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  dashboard:
+    build: .
+    container_name: csg-dashboard
+    command: ["python3", "src/dashboard.py"]
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 5002
+      CSG_CONFIG_FILE: config/onboarding.docker.yaml
+    ports:
+      - "5002:5002"
+    volumes:
+      - ./config:/app/config
+      - ./data:/app/data
+      - ./output:/app/output
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      mysql:
+        condition: service_healthy
+      openldap:
+        condition: service_started
+      mock-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5002/', timeout=2).read()"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  state-cli:
+    build: .
+    profiles: ["tools"]
+    env_file:
+      - .env
+    environment:
+      CSG_CONFIG_FILE: config/onboarding.docker.yaml
+    volumes:
+      - ./config:/app/config
+      - ./data:/app/data
+      - ./output:/app/output
+    depends_on:
+      mysql:
+        condition: service_healthy
+      openldap:
+        condition: service_started
+      mock-api:
+        condition: service_healthy
+    entrypoint: ["python3", "src/state_engine.py"]
+
 volumes:
   mysql_data:

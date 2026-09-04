@@ -1,0 +1,8 @@
+[mcp_servers.continuous-state-governance]
+command = "/Users/hassanaltamash/git/continuous-state-poc/.venv/bin/python"
+args = ["/Users/hassanaltamash/git/continuous-state-poc/src/mcp_server.py"]
+cwd = "/Users/hassanaltamash/git/continuous-state-poc"
+
+[mcp_servers.continuous-state-governance.env]
+DB_PASSWORD = "demo_readonly_pw"
+LDAP_BIND_PASSWORD = "admin_demo_pw"

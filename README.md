@@ -5,7 +5,7 @@ This PoC demonstrates one application composed of four governed controls collect
 - REST/JSON via a small Flask mock API
 - Local JSON file
 - MySQL query using a read-only DB account
-- OpenLDAP group membership using a non-admin bind account
+- OpenLDAP group membership using a lab bind account
 
 All observations are normalized into a canonical state record, stored in SQLite, compared deterministically to expected values in `config/onboarding.yaml`, exposed through a Flask dashboard, exportable to CSV, callable on demand through MCP, and runnable continuously with macOS `launchd`.
 
@@ -15,7 +15,7 @@ An editable Mermaid architecture diagram is available in
 [`docs/architecture.md`](docs/architecture.md).
 
 ```text
-Claude Desktop prompt ----> Python MCP server ----┐
+Codex MCP prompt -------> Python MCP server ----┐
                                                   |
 macOS launchd (5 min) ----------------------------+--> State Engine
                                                        |
@@ -34,7 +34,7 @@ macOS launchd (5 min) ----------------------------+--> State Engine
                               Dashboard       CSV export
 ```
 
-The scheduler and MCP path both invoke the same state engine. Claude is not the source of truth and does not perform the deterministic comparison.
+The scheduler and MCP path both invoke the same state engine. Codex is not the source of truth and does not perform the deterministic comparison.
 
 ## 1. Prerequisites
 
@@ -43,7 +43,7 @@ You need:
 1. macOS
 2. Python 3.11+ recommended
 3. Docker Desktop
-4. Claude Desktop for the MCP portion
+4. Codex for the MCP portion
 5. Optional: Node 22.19+ only if you want to use the MCP Inspector
 
 Check what is already installed:
@@ -107,8 +107,8 @@ Check LDAP membership:
 ```bash
 docker exec csg-openldap ldapsearch -x \
   -H ldap://127.0.0.1:389 \
-  -D 'uid=state-reader,ou=people,dc=demo,dc=local' \
-  -w demo_readonly_pw \
+  -D 'cn=admin,dc=demo,dc=local' \
+  -w admin_demo_pw \
   -b 'cn=app-admins,ou=groups,dc=demo,dc=local' member
 ```
 
@@ -149,7 +149,7 @@ The PoC starts with four controls:
 | `db-max-connections` | MySQL SELECT | `"200"` |
 | `iam-app-admins` | LDAP group query | Alice + Bob |
 
-Credentials are not embedded in the onboarding YAML. The YAML references environment-variable names and `.env` contains the PoC secrets. A real implementation should replace `.env` with a secrets manager/vault.
+Credentials are not embedded in the onboarding YAML. The YAML references environment-variable names and `.env` contains the PoC secrets. The LDAP collector uses the lab admin bind in this local demo because the container image's default ACL does not grant the demo reader account group-read access. A real implementation should use a read-only service account with explicit LDAP ACLs and replace `.env` with a secrets manager/vault.
 
 ## 6. Capture the first known-good state
 
@@ -181,7 +181,7 @@ SQLite is created at:
 data/state.db
 ```
 
-## 7. Start the dashboard
+## 7. Start the guided demo dashboard
 
 Open Terminal C:
 
@@ -197,7 +197,18 @@ Open:
 http://127.0.0.1:5002
 ```
 
-Refresh the browser after each capture to see the latest state.
+The dashboard is also the demo console. Use its buttons to:
+
+- capture current state
+- apply and restore REST/API drift
+- apply and restore direct-file drift
+- apply and restore MySQL drift
+- apply and restore LDAP/IAM drift
+- stop and start MySQL to demonstrate collector health
+- restore all local lab values
+- export CSV evidence
+
+Refresh is not required after using the buttons; each action redirects back to the latest state view.
 
 ## 8. Demonstrate REST/API drift
 
@@ -366,7 +377,7 @@ python src/state_engine.py export-csv
 
 The command prints the generated file path under `output/`.
 
-## 14. Test the MCP server before Claude Desktop
+## 14. Test the MCP server before Codex
 
 The current MCP reference Inspector runs through `npx` and requires Node 22.19+.
 
@@ -387,42 +398,36 @@ Use the Inspector to list/call these tools:
 
 For an stdio MCP server, do not add `print()` calls to `mcp_server.py`; stdout is reserved for MCP protocol traffic.
 
-## 15. Register the MCP server in Claude Desktop
+## 15. Register the MCP server in Codex
 
-Claude Desktop's macOS configuration file is:
+This repo includes a project-scoped Codex MCP config at:
 
 ```text
-~/Library/Application Support/Claude/claude_desktop_config.json
+.codex/config.toml
 ```
 
-Use **absolute paths**. First find this repository's absolute path:
+Codex supports MCP server configuration in `config.toml` using `mcp_servers.<id>.command`, `args`, `cwd`, and `env`.
+
+Use **absolute paths** for this local PoC. First find this repository's absolute path:
 
 ```bash
 pwd
 ```
 
-Then edit the Claude config, for example:
+Then make sure `.codex/config.toml` points at your local checkout and virtual environment:
 
-```json
-{
-  "mcpServers": {
-    "continuous-state-governance": {
-      "command": "/ABSOLUTE/PATH/TO/continuous-state-poc/.venv/bin/python",
-      "args": [
-        "/ABSOLUTE/PATH/TO/continuous-state-poc/src/mcp_server.py"
-      ],
-      "env": {
-        "DB_PASSWORD": "demo_readonly_pw",
-        "LDAP_BIND_PASSWORD": "demo_readonly_pw"
-      }
-    }
-  }
-}
+```toml
+[mcp_servers.continuous-state-governance]
+command = "/ABSOLUTE/PATH/TO/continuous-state-poc/.venv/bin/python"
+args = ["/ABSOLUTE/PATH/TO/continuous-state-poc/src/mcp_server.py"]
+cwd = "/ABSOLUTE/PATH/TO/continuous-state-poc"
+
+[mcp_servers.continuous-state-governance.env]
+DB_PASSWORD = "demo_readonly_pw"
+LDAP_BIND_PASSWORD = "admin_demo_pw"
 ```
 
-If you already have other MCP servers, merge this entry into the existing `mcpServers` object rather than replacing the file.
-
-Fully quit and restart Claude Desktop.
+Restart Codex after changing project MCP configuration.
 
 Suggested prompts:
 
@@ -431,15 +436,15 @@ Use the continuous-state-governance tools to capture the current state of demo-w
 ```
 
 ```text
-Show me everything that changed in demo-web-app since its last healthy state.
+Use the continuous-state-governance tools to show me everything that changed in demo-web-app since its last healthy state.
 ```
 
 ```text
-Show the history of iam-app-admins and explain the membership changes without altering anything.
+Use the continuous-state-governance tools to show the history of iam-app-admins and explain the membership changes without altering anything.
 ```
 
 ```text
-Run a new state capture, then export the current state as CSV evidence.
+Use the continuous-state-governance tools to run a new state capture, then export the current state as CSV evidence.
 ```
 
 ## 16. Add continuous scheduled capture with macOS launchd
@@ -474,19 +479,22 @@ For the PoC, credentials are included in the generated launchd environment. This
 
 ## 17. End-to-end demo script
 
+For a click-by-click validation runbook, see
+[`docs/demo-test-steps.md`](docs/demo-test-steps.md).
+
 A clean demo sequence is:
 
 1. Start Docker containers and Flask API.
-2. Capture known-good state — dashboard shows 4 healthy controls.
-3. Change session timeout 30 -> 60.
-4. Add Carol to `app-admins`.
-5. Change MySQL `max_connections` app setting 200 -> 350.
-6. Run capture manually or wait for launchd.
+2. Open the guided dashboard and click Capture State — dashboard shows 4 healthy controls.
+3. Use the dashboard to apply REST/API drift: session timeout 30 -> 60.
+4. Use the dashboard to add Carol to `app-admins`.
+5. Use the dashboard to change MySQL `max_connections` app setting 200 -> 350.
+6. Click Capture State manually or wait for launchd.
 7. Dashboard shows three drifts.
-8. Ask Claude, "What changed since the last healthy state?"
+8. Ask Codex, "Use the continuous-state-governance tools to show recent drift events."
 9. Stop MySQL and capture again to demonstrate `UNKNOWN`, not false drift.
 10. Restore all values.
-11. Ask Claude to revalidate.
+11. Ask Codex to revalidate.
 12. Show `DRIFT_RESTORED` / collector-restored events.
 13. Export CSV evidence.
 
@@ -511,6 +519,41 @@ docker compose up -d
 ```
 
 If LDAP bootstrap changes do not reset as expected, `docker compose down` and recreate the LDAP container; its data is not persisted in this PoC.
+
+## 18. Docker-only demo stack
+
+The full local demo stack can also run through Docker Compose: MySQL, OpenLDAP,
+the mock API, the dashboard, and an on-demand state capture CLI.
+
+Make sure `.env` exists first:
+
+```bash
+cp .env.example .env
+```
+
+Start everything:
+
+```bash
+docker compose up -d --build
+```
+
+Open the dashboard:
+
+```text
+http://127.0.0.1:5002
+```
+
+Run a capture from inside the Compose network:
+
+```bash
+docker compose --profile tools run --rm state-cli capture
+```
+
+The Docker services use `config/onboarding.docker.yaml`, where collectors refer
+to Compose service names such as `mock-api`, `mysql`, and `openldap`. The
+dashboard container mounts `/var/run/docker.sock` so its demo buttons can still
+run `docker exec`, `docker stop`, and `docker start` against the lab containers.
+Use that socket mount only for this local demo setup.
 
 ## 19. What this PoC deliberately does NOT build yet
 

@@ -3,7 +3,7 @@
 ```mermaid
 flowchart TB
   subgraph Users["Users and Automation"]
-    Claude["Claude Desktop"]
+    Codex["Codex"]
     Launchd["macOS launchd<br/>5 minute schedule"]
     Operator["Operator CLI"]
     Browser["Browser"]
@@ -43,7 +43,7 @@ flowchart TB
     CSV["CSV evidence export<br/>output/*.csv"]
   end
 
-  Claude --> MCP
+  Codex --> MCP
   Launchd --> CLI
   Operator --> CLI
   Browser --> Dashboard
@@ -76,7 +76,7 @@ flowchart TB
   classDef source fill:#fef2f2,stroke:#ef4444,color:#172033;
   classDef evidence fill:#f8fafc,stroke:#64748b,color:#172033;
 
-  class Claude,Launchd,Operator,Browser user;
+  class Codex,Launchd,Operator,Browser user;
   class MCP,CLI,Dashboard entry;
   class Engine,Baseline,Canonical,RestCollector,FileCollector,MySQLCollector,LDAPCollector core;
   class MockAPI,ConfigFile,MySQL,LDAP source;
@@ -85,7 +85,7 @@ flowchart TB
 
 ## Flow
 
-1. A capture is triggered by the CLI, macOS `launchd`, or an MCP tool call from Claude Desktop.
+1. A capture is triggered by the CLI, macOS `launchd`, or an MCP tool call from Codex.
 2. `src/state_engine.py` loads expected baselines from `config/onboarding.yaml`.
 3. The state engine invokes each configured read-only collector.
 4. Collector outputs are normalized into canonical JSON strings.

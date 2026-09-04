@@ -1,5 +1,6 @@
 from flask import Flask, jsonify
 import json
+import os
 from common import ROOT
 
 app = Flask(__name__)
@@ -14,4 +15,6 @@ def config():
         return jsonify(json.load(f))
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5001, debug=False)
+    host = os.getenv("HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", "5001"))
+    app.run(host=host, port=port, debug=False)

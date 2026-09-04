@@ -43,7 +43,7 @@ applications:
         collector: ldap_group_members
         host: 127.0.0.1
         port: 1389
-        bind_dn: uid=state-reader,ou=people,dc=demo,dc=local
+        bind_dn: cn=admin,dc=demo,dc=local
         password_env: LDAP_BIND_PASSWORD
         base_dn: ou=groups,dc=demo,dc=local
         group_dn: cn=app-admins,ou=groups,dc=demo,dc=local

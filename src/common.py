@@ -13,7 +13,11 @@ load_dotenv(ROOT / ".env")
 
 
 def load_config() -> dict[str, Any]:
-    with open(ROOT / "config" / "onboarding.yaml", "r", encoding="utf-8") as f:
+    config_file = os.getenv("CSG_CONFIG_FILE", "config/onboarding.yaml")
+    path = Path(config_file)
+    if not path.is_absolute():
+        path = ROOT / path
+    with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 

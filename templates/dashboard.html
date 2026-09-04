@@ -3,64 +3,453 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Continuous State Governance PoC</title>
+  <title>Continuous State Governance Demo</title>
   <style>
-    body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; margin: 32px; background:#f6f8fa; color:#172033; }
-    h1 { margin-bottom: 6px; }
-    .sub { color:#667085; margin-top:0; }
-    .metrics { display:flex; gap:16px; flex-wrap:wrap; margin:24px 0; }
-    .metric { background:white; border:1px solid #e2e6eb; border-radius:12px; padding:16px 22px; min-width:120px; }
-    .metric b { display:block; font-size:28px; }
-    table { width:100%; border-collapse:collapse; background:white; margin-bottom:28px; }
-    th,td { border-bottom:1px solid #e5e7eb; padding:10px; text-align:left; font-size:14px; vertical-align:top; }
-    th { background:#eef2f7; }
-    .MATCH { color:#137333; font-weight:700; }
-    .DRIFT { color:#b42318; font-weight:700; }
-    .UNKNOWN { color:#8a6116; font-weight:700; }
-    code { white-space:pre-wrap; word-break:break-word; }
+    :root {
+      color-scheme: light;
+      --bg: #eef2f6;
+      --surface: #ffffff;
+      --surface-soft: #f8fafc;
+      --text: #101828;
+      --muted: #667085;
+      --line: #d9e2ec;
+      --line-strong: #bdc9d6;
+      --green: #067647;
+      --green-bg: #ecfdf3;
+      --red: #b42318;
+      --red-bg: #fff1f0;
+      --amber: #b54708;
+      --amber-bg: #fffaeb;
+      --blue: #175cd3;
+      --blue-bg: #eff4ff;
+      --ink: #122034;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        linear-gradient(180deg, #dfe7f0 0, #eef2f6 260px),
+        var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button {
+      min-height: 36px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: #fff;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 8px 12px;
+    }
+    button:hover { border-color: #8393a8; background: #f9fbfd; }
+    button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+    button.primary:hover { background: #1849a9; }
+    button.danger { border-color: #f2a6a0; color: var(--red); background: #fffafa; }
+    button.restore { border-color: #9ed6b7; color: var(--green); background: #fbfffd; }
+    code { white-space: pre-wrap; word-break: break-word; font-size: 12px; }
+    main { max-width: 1480px; margin: 0 auto; padding: 24px; }
+    .shell {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .sidebar, .panel, .metric, .scenario, .notice {
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    }
+    .sidebar {
+      position: sticky;
+      top: 20px;
+      overflow: hidden;
+    }
+    .brand {
+      padding: 18px;
+      background: var(--ink);
+      color: #fff;
+    }
+    .brand small { display: block; margin-top: 6px; color: #b7c2d2; line-height: 1.35; }
+    .navblock { padding: 14px; border-bottom: 1px solid var(--line); }
+    .navblock:last-child { border-bottom: 0; }
+    .navlabel {
+      color: var(--muted);
+      display: block;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      margin-bottom: 9px;
+      text-transform: uppercase;
+    }
+    .step {
+      align-items: center;
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 8px;
+      min-height: 32px;
+      color: #344054;
+      font-size: 13px;
+    }
+    .num {
+      align-items: center;
+      background: var(--blue-bg);
+      border: 1px solid #c7d7fe;
+      border-radius: 999px;
+      color: var(--blue);
+      display: inline-flex;
+      font-size: 11px;
+      font-weight: 800;
+      height: 22px;
+      justify-content: center;
+      width: 22px;
+    }
+    .pagehead {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      margin-bottom: 14px;
+    }
+    h1 { font-size: 30px; line-height: 1.1; margin: 0 0 7px; }
+    h2 { font-size: 17px; line-height: 1.25; margin: 0; }
+    h3 { font-size: 15px; margin: 0; }
+    p { margin: 0; }
+    .sub { color: var(--muted); font-size: 14px; line-height: 1.45; max-width: 840px; }
+    .toolbar {
+      align-items: flex-start;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      justify-content: flex-end;
+    }
+    .notices { margin-bottom: 12px; }
+    .notice { margin-bottom: 8px; padding: 11px 13px; font-size: 14px; }
+    .notice.success { background: var(--green-bg); border-color: #abefc6; color: var(--green); }
+    .notice.error { background: var(--red-bg); border-color: #fecdca; color: var(--red); }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .metric { padding: 14px 15px; }
+    .metric span { color: var(--muted); display: block; font-size: 12px; font-weight: 700; }
+    .metric b { display: block; font-size: 30px; line-height: 1.05; margin-top: 5px; }
+    .panel { margin-bottom: 14px; overflow: hidden; }
+    .panelhead {
+      align-items: center;
+      background: var(--surface-soft);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+    }
+    .panelbody { padding: 14px; }
+    .scenarios {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .scenario {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: 178px;
+      padding: 14px;
+    }
+    .scenario-top {
+      align-items: flex-start;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .scenario p { color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .chip {
+      border-radius: 999px;
+      display: inline-flex;
+      flex: 0 0 auto;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 6px 8px;
+      text-transform: uppercase;
+    }
+    .chip.MATCH { background: var(--green-bg); color: var(--green); }
+    .chip.DRIFT { background: var(--red-bg); color: var(--red); }
+    .chip.UNKNOWN { background: var(--amber-bg); color: var(--amber); }
+    .chip.idle { background: #f2f4f7; color: #475467; }
+    .MATCH { color: var(--green); font-weight: 800; }
+    .DRIFT { color: var(--red); font-weight: 800; }
+    .UNKNOWN { color: var(--amber); font-weight: 800; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border-bottom: 1px solid #e6ebf0;
+      font-size: 13px;
+      padding: 11px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f8fafc;
+      color: #475467;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    tr:last-child td { border-bottom: 0; }
+    small { color: var(--muted); display: block; line-height: 1.45; margin-top: 2px; }
+    .empty {
+      border: 1px dashed var(--line-strong);
+      border-radius: 8px;
+      color: var(--muted);
+      padding: 18px;
+      text-align: center;
+    }
+    @media (max-width: 1120px) {
+      main { padding: 18px; }
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
+      .pagehead { grid-template-columns: 1fr; }
+      .toolbar { justify-content: flex-start; }
+      .scenarios { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 720px) {
+      main { padding: 12px; }
+      .metrics, .scenarios { grid-template-columns: 1fr; }
+      .actions form, .toolbar form { width: 100%; }
+      button { width: 100%; }
+      table { display: block; overflow-x: auto; }
+    }
   </style>
 </head>
 <body>
-  <h1>Continuous State Governance</h1>
-  <p class="sub">PoC dashboard — latest deterministic state snapshot and drift history</p>
+  {% macro status_chip(control_id) -%}
+    {% set row = row_by_control.get(control_id) %}
+    {% if row %}
+      <span class="chip {{ row.status }}">{{ row.status }}</span>
+    {% else %}
+      <span class="chip idle">Not Captured</span>
+    {% endif %}
+  {%- endmacro %}
 
-  <div class="metrics">
-    <div class="metric">Healthy<b>{{ counts.MATCH }}</b></div>
-    <div class="metric">Drifted<b>{{ counts.DRIFT }}</b></div>
-    <div class="metric">Unknown<b>{{ counts.UNKNOWN }}</b></div>
-    <div class="metric">Total<b>{{ rows|length }}</b></div>
-  </div>
+  <main>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <strong>Continuous State Governance</strong>
+          <small>Deterministic controls, drift history, and evidence export.</small>
+        </div>
+        <div class="navblock">
+          <span class="navlabel">Demo Sequence</span>
+          <div class="step"><span class="num">1</span><span>Restore all</span></div>
+          <div class="step"><span class="num">2</span><span>Capture baseline</span></div>
+          <div class="step"><span class="num">3</span><span>Apply scenario</span></div>
+          <div class="step"><span class="num">4</span><span>Capture drift</span></div>
+          <div class="step"><span class="num">5</span><span>Export evidence</span></div>
+        </div>
+        <div class="navblock">
+          <span class="navlabel">Sources</span>
+          <div class="step"><span class="num">A</span><span>REST API</span></div>
+          <div class="step"><span class="num">B</span><span>JSON file</span></div>
+          <div class="step"><span class="num">C</span><span>MySQL</span></div>
+          <div class="step"><span class="num">D</span><span>OpenLDAP</span></div>
+        </div>
+      </aside>
 
-  <h2>Current state</h2>
-  <table>
-    <thead><tr><th>Application</th><th>Control</th><th>Collector</th><th>Expected</th><th>Observed</th><th>Status</th><th>Captured</th></tr></thead>
-    <tbody>
-    {% for r in rows %}
-      <tr>
-        <td>{{ r.application_id }}<br><small>{{ r.environment }} · {{ r.owner }}</small></td>
-        <td>{{ r.control_label }}<br><small>{{ r.control_id }}</small></td>
-        <td>{{ r.collector }}</td>
-        <td><code>{{ r.expected_value }}</code></td>
-        <td><code>{{ r.observed_value if r.observed_value is not none else r.error }}</code></td>
-        <td class="{{ r.status }}">{{ r.status }}</td>
-        <td>{{ r.captured_at }}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+      <section>
+        <div class="pagehead">
+          <div>
+            <h1>Governance Demo Console</h1>
+            <p class="sub">Run the local lab from one screen, then show exactly how expected baselines compare with observed application state.</p>
+          </div>
+          <div class="toolbar">
+            <form method="post" action="{{ url_for('capture_now') }}"><button class="primary" type="submit">Capture State</button></form>
+            <form method="post" action="{{ url_for('restore_everything') }}"><button class="restore" type="submit">Restore All</button></form>
+            <form method="post" action="{{ url_for('export_csv_evidence') }}"><button type="submit">Export CSV</button></form>
+          </div>
+        </div>
 
-  <h2>Recent state events</h2>
-  <table>
-    <thead><tr><th>Time</th><th>Application</th><th>Control</th><th>Event</th><th>Transition</th><th>Value change</th></tr></thead>
-    <tbody>
-    {% for e in events %}
-      <tr>
-        <td>{{ e.detected_at }}</td><td>{{ e.application_id }}</td><td>{{ e.control_id }}</td>
-        <td>{{ e.event_type }}</td><td>{{ e.previous_status }} → {{ e.new_status }}</td>
-        <td><code>{{ e.previous_value }} → {{ e.new_value }}</code></td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+        <div class="notices">
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for category, message in messages %}
+                <div class="notice {{ category }}">{{ message }}</div>
+              {% endfor %}
+            {% endif %}
+          {% endwith %}
+        </div>
+
+        <section class="metrics" aria-label="State summary">
+          <div class="metric"><span>Healthy Controls</span><b class="MATCH">{{ counts.MATCH }}</b></div>
+          <div class="metric"><span>Drifted Controls</span><b class="DRIFT">{{ counts.DRIFT }}</b></div>
+          <div class="metric"><span>Unverifiable</span><b class="UNKNOWN">{{ counts.UNKNOWN }}</b></div>
+          <div class="metric"><span>Total Controls</span><b>{{ rows|length }}</b></div>
+        </section>
+
+        <section class="panel">
+          <div class="panelhead">
+            <h2>Scenario Controls</h2>
+            <small>Each action changes local lab state only.</small>
+          </div>
+          <div class="panelbody">
+            <div class="scenarios">
+              <div class="scenario">
+                <div class="scenario-top">
+                  <h3>REST/API Drift</h3>
+                  {{ status_chip("api-session-timeout") }}
+                </div>
+                <p>Session timeout changes from baseline `30` to observed `60` through the mock API.</p>
+                <div class="actions">
+                  <form method="post" action="{{ url_for('apply_rest_drift') }}"><button class="danger" type="submit">Apply Drift</button></form>
+                  <form method="post" action="{{ url_for('restore_rest_drift') }}"><button class="restore" type="submit">Restore</button></form>
+                </div>
+              </div>
+
+              <div class="scenario">
+                <div class="scenario-top">
+                  <h3>Direct File Drift</h3>
+                  {{ status_chip("file-tls-enabled") }}
+                </div>
+                <p>TLS changes from baseline `true` to observed `false` in the JSON config file.</p>
+                <div class="actions">
+                  <form method="post" action="{{ url_for('apply_file_drift') }}"><button class="danger" type="submit">Apply Drift</button></form>
+                  <form method="post" action="{{ url_for('restore_file_drift') }}"><button class="restore" type="submit">Restore</button></form>
+                </div>
+              </div>
+
+              <div class="scenario">
+                <div class="scenario-top">
+                  <h3>Database Drift</h3>
+                  {{ status_chip("db-max-connections") }}
+                </div>
+                <p>MySQL max connections changes from baseline `"200"` to observed `"350"`.</p>
+                <div class="actions">
+                  <form method="post" action="{{ url_for('apply_db_drift') }}"><button class="danger" type="submit">Apply Drift</button></form>
+                  <form method="post" action="{{ url_for('restore_db_drift') }}"><button class="restore" type="submit">Restore</button></form>
+                </div>
+              </div>
+
+              <div class="scenario">
+                <div class="scenario-top">
+                  <h3>IAM Drift</h3>
+                  {{ status_chip("iam-app-admins") }}
+                </div>
+                <p>Carol is added to the privileged `app-admins` LDAP group and appears in observed state.</p>
+                <div class="actions">
+                  <form method="post" action="{{ url_for('apply_iam_drift') }}"><button class="danger" type="submit">Apply Drift</button></form>
+                  <form method="post" action="{{ url_for('restore_iam_drift') }}"><button class="restore" type="submit">Restore</button></form>
+                </div>
+              </div>
+
+              <div class="scenario">
+                <div class="scenario-top">
+                  <h3>Collector Health</h3>
+                  {{ status_chip("db-max-connections") }}
+                </div>
+                <p>MySQL is stopped to show `UNKNOWN` collector status without reporting false drift.</p>
+                <div class="actions">
+                  <form method="post" action="{{ url_for('mysql_health_down') }}"><button class="danger" type="submit">Stop MySQL</button></form>
+                  <form method="post" action="{{ url_for('mysql_health_up') }}"><button class="restore" type="submit">Start MySQL</button></form>
+                </div>
+              </div>
+
+              <div class="scenario">
+                <div class="scenario-top">
+                  <h3>Evidence Export</h3>
+                  <span class="chip idle">CSV</span>
+                </div>
+                <p>Generate a current snapshot and export the latest state as timestamped audit evidence.</p>
+                <div class="actions">
+                  <form method="post" action="{{ url_for('capture_now') }}"><button class="primary" type="submit">Capture</button></form>
+                  <form method="post" action="{{ url_for('export_csv_evidence') }}"><button type="submit">Export CSV</button></form>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panelhead">
+            <h2>Current State</h2>
+            <small>Latest canonical comparison by control.</small>
+          </div>
+          {% if rows %}
+            <table>
+              <thead>
+                <tr>
+                  <th>Application</th>
+                  <th>Control</th>
+                  <th>Collector</th>
+                  <th>Expected</th>
+                  <th>Observed</th>
+                  <th>Status</th>
+                  <th>Captured</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% for r in rows %}
+                <tr>
+                  <td>{{ r.application_id }}<small>{{ r.environment }} / {{ r.owner }}</small></td>
+                  <td>{{ r.control_label }}<small>{{ r.control_id }}</small></td>
+                  <td>{{ r.collector }}<small>{{ r.collector_status }}</small></td>
+                  <td><code>{{ r.expected_value }}</code></td>
+                  <td><code>{{ r.observed_value if r.observed_value is not none else r.error }}</code></td>
+                  <td><span class="chip {{ r.status }}">{{ r.status }}</span></td>
+                  <td>{{ r.captured_at }}</td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <div class="panelbody"><div class="empty">No snapshots yet. Run Capture State to create the first baseline.</div></div>
+          {% endif %}
+        </section>
+
+        <section class="panel">
+          <div class="panelhead">
+            <h2>Recent State Events</h2>
+            <small>Drift, restore, and collector-health transitions.</small>
+          </div>
+          {% if events %}
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Application</th>
+                  <th>Control</th>
+                  <th>Event</th>
+                  <th>Transition</th>
+                  <th>Value Change</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% for e in events %}
+                <tr>
+                  <td>{{ e.detected_at }}</td>
+                  <td>{{ e.application_id }}</td>
+                  <td>{{ e.control_id }}</td>
+                  <td>{{ e.event_type }}</td>
+                  <td>{{ e.previous_status }} &rarr; {{ e.new_status }}</td>
+                  <td><code>{{ e.previous_value }} &rarr; {{ e.new_value }}</code></td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <div class="panelbody"><div class="empty">No state events yet.</div></div>
+          {% endif %}
+        </section>
+      </section>
+    </div>
+  </main>
 </body>
 </html>
